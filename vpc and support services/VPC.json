@@ -1,0 +1,316 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+	
+	"Description" : "Creates generic VPC with public and private subnets (with private network Internet access via NAT)",
+
+  	"Parameters" : {
+
+	},
+
+	"Mappings" : {
+		"SubnetConfig" : {
+			"VPC"     : 	{ "CIDR" : "10.44.0.0/16" },
+			"Public1"  : 	{ "CIDR" : "10.44.0.0/24" },
+			"Public2"  : 	{ "CIDR" : "10.44.1.0/24" },
+			"Private1" : 	{ "CIDR" : "10.44.2.0/24" },
+			"Private2" : 	{ "CIDR" : "10.44.3.0/24" }
+		},
+	  
+		"NatRegionMap" : {
+			"us-east-1"      : { "AMI" : "ami-184dc970" },
+			"us-west-1"      : { "AMI" : "ami-a98396ec" },
+			"us-west-2"      : { "AMI" : "ami-290f4119" },
+			"eu-west-1"      : { "AMI" : "ami-14913f63" },
+			"eu-central-1"   : { "AMI" : "ami-ae380eb3" },
+			"sa-east-1"      : { "AMI" : "ami-8122969c" },
+			"ap-southeast-1" : { "AMI" : "ami-6aa38238" },
+			"ap-southeast-2" : { "AMI" : "ami-893f53b3" },
+			"ap-northeast-1" : { "AMI" : "ami-27d6e626" }
+		},
+	  
+		"AWSInstanceType2Arch" : {
+			"t1.micro"    : { "Arch" : "PV64"   },
+			"t2.micro"    : { "Arch" : "HVM64"  },
+			"t2.small"    : { "Arch" : "HVM64"  },
+			"t2.medium"   : { "Arch" : "HVM64"  },
+			"m1.small"    : { "Arch" : "PV64"   },
+			"m1.medium"   : { "Arch" : "PV64"   },
+			"m1.large"    : { "Arch" : "PV64"   },
+			"m1.xlarge"   : { "Arch" : "PV64"   },
+			"m2.xlarge"   : { "Arch" : "PV64"   },
+			"m2.2xlarge"  : { "Arch" : "PV64"   },
+			"m2.4xlarge"  : { "Arch" : "PV64"   },
+			"m3.medium"   : { "Arch" : "HVM64"  },
+			"m3.large"    : { "Arch" : "HVM64"  },
+			"m3.xlarge"   : { "Arch" : "HVM64"  },
+			"m3.2xlarge"  : { "Arch" : "HVM64"  },
+			"c1.medium"   : { "Arch" : "PV64"   },
+			"c1.xlarge"   : { "Arch" : "PV64"   },
+			"c3.large"    : { "Arch" : "HVM64"  },
+			"c3.xlarge"   : { "Arch" : "HVM64"  },
+			"c3.2xlarge"  : { "Arch" : "HVM64"  },
+			"c3.4xlarge"  : { "Arch" : "HVM64"  },
+			"c3.8xlarge"  : { "Arch" : "HVM64"  },
+			"c4.large"    : { "Arch" : "HVM64"  },
+			"c4.xlarge"   : { "Arch" : "HVM64"  },
+			"c4.2xlarge"  : { "Arch" : "HVM64"  },
+			"c4.4xlarge"  : { "Arch" : "HVM64"  },
+			"c4.8xlarge"  : { "Arch" : "HVM64"  },
+			"g2.2xlarge"  : { "Arch" : "HVMG2"  },
+			"r3.large"    : { "Arch" : "HVM64"  },
+			"r3.xlarge"   : { "Arch" : "HVM64"  },
+			"r3.2xlarge"  : { "Arch" : "HVM64"  },
+			"r3.4xlarge"  : { "Arch" : "HVM64"  },
+			"r3.8xlarge"  : { "Arch" : "HVM64"  },
+			"i2.xlarge"   : { "Arch" : "HVM64"  },
+			"i2.2xlarge"  : { "Arch" : "HVM64"  },
+			"i2.4xlarge"  : { "Arch" : "HVM64"  },
+			"i2.8xlarge"  : { "Arch" : "HVM64"  },
+			"d2.xlarge"   : { "Arch" : "HVM64"  },
+			"d2.2xlarge"  : { "Arch" : "HVM64"  },
+			"d2.4xlarge"  : { "Arch" : "HVM64"  },
+			"d2.8xlarge"  : { "Arch" : "HVM64"  },
+			"hi1.4xlarge" : { "Arch" : "HVM64"  },
+			"hs1.8xlarge" : { "Arch" : "HVM64"  },
+			"cr1.8xlarge" : { "Arch" : "HVM64"  },
+			"cc2.8xlarge" : { "Arch" : "HVM64"  }
+		},
+	  
+		"AWSRegionArch2AMI" : {
+			"us-east-1"        	: {"PV64" : "ami-0f4cfd64", "HVM64" : "ami-0d4cfd66", "HVMG2" : "ami-5b05ba30"},
+			"us-west-2"        	: {"PV64" : "ami-d3c5d1e3", "HVM64" : "ami-d5c5d1e5", "HVMG2" : "ami-a9d6c099"},
+			"us-west-1"        	: {"PV64" : "ami-85ea13c1", "HVM64" : "ami-87ea13c3", "HVMG2" : "ami-37827a73"},
+			"eu-west-1"        	: {"PV64" : "ami-d6d18ea1", "HVM64" : "ami-e4d18e93", "HVMG2" : "ami-72a9f105"},
+			"eu-central-1"     	: {"PV64" : "ami-a4b0b7b9", "HVM64" : "ami-a6b0b7bb", "HVMG2" : "ami-a6c9cfbb"},
+			"ap-northeast-1"   	: {"PV64" : "ami-1a1b9f1a", "HVM64" : "ami-1c1b9f1c", "HVMG2" : "ami-f644c4f6"},
+			"ap-southeast-1"   	: {"PV64" : "ami-d24b4280", "HVM64" : "ami-d44b4286", "HVMG2" : "ami-12b5bc40"},
+			"ap-southeast-2"   	: {"PV64" : "ami-ef7b39d5", "HVM64" : "ami-db7b39e1", "HVMG2" : "ami-b3337e89"},
+			"sa-east-1"        	: {"PV64" : "ami-5b098146", "HVM64" : "ami-55098148", "HVMG2" : "NOT_SUPPORTED"},
+			"cn-north-1"       	: {"PV64" : "ami-bec45887", "HVM64" : "ami-bcc45885", "HVMG2" : "NOT_SUPPORTED"}
+		},
+		
+		"PreferredAZs" : {
+			"us-east-1"			: { "1" : "us-east-1a", "2" : "us-east-1b" }	
+		}
+	},
+	
+	"Resources" : {
+		
+		"VPC" : {
+			"Type" : "AWS::EC2::VPC",
+			"Properties" : {
+				"CidrBlock" : { "Fn::FindInMap" : [ "SubnetConfig", "VPC", "CIDR" ]},
+				"EnableDnsSupport" : "true",
+      			"EnableDnsHostnames" : "true",
+				"Tags" : [
+					{ "Key" : "Name",      "Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-vpc" ] ] } },
+					{ "Key" : "Project",   "Value" : "DevOps" } 
+				]
+			}
+		},
+
+    	"PublicSubnet1" : {
+			"Type" : "AWS::EC2::Subnet",
+			"Properties" : {
+				"VpcId" : { "Ref" : "VPC" },
+				"AvailabilityZone" : { "Fn::FindInMap" : [ "PreferredAZs", { "Ref" : "AWS::Region" }, "1" ] },
+				"MapPublicIpOnLaunch" : "true",
+				"CidrBlock" : { "Fn::FindInMap" : [ "SubnetConfig", "Public1", "CIDR" ]},
+        		"Tags" : [
+					{ "Key" : "Name",      "Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-public-subnet1" ] ] } },
+					{ "Key" : "Project",   "Value" : "DevOps" },
+					{ "Key" : "Network",   "Value" : "Public" }
+				]
+      		}
+    	},
+		
+		"PublicSubnet2" : {
+			"Type" : "AWS::EC2::Subnet",
+			"Properties" : {
+				"VpcId" : { "Ref" : "VPC" },
+				"AvailabilityZone" : { "Fn::FindInMap" : [ "PreferredAZs", { "Ref" : "AWS::Region" }, "2" ] },
+				"MapPublicIpOnLaunch" : "true",
+				"CidrBlock" : { "Fn::FindInMap" : [ "SubnetConfig", "Public2", "CIDR" ]},
+        		"Tags" : [
+					{ "Key" : "Name",      "Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-public-subnet2" ] ] } },
+					{ "Key" : "Project",   "Value" : "DevOps" },
+					{ "Key" : "Network",   "Value" : "Public" }
+				]
+      		}
+    	},
+		
+		"PrivateSubnet1" : {
+      		"Type" : "AWS::EC2::Subnet",
+      		"Properties" : {
+        		"VpcId" : { "Ref" : "VPC" },
+				"AvailabilityZone" : { "Fn::FindInMap" : [ "PreferredAZs", { "Ref" : "AWS::Region" }, "1" ] },
+        		"CidrBlock" : { "Fn::FindInMap" : [ "SubnetConfig", "Private1", "CIDR" ]},
+        		"Tags" : [
+					{ "Key" : "Name",      "Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-private-subnet-1" ] ] } },
+					{ "Key" : "Project",   "Value" : "DevOps" },
+					{ "Key" : "Network",   "Value" : "Private" }
+				]
+      		}
+    	},
+		
+		"PrivateSubnet2" : {
+      		"Type" : "AWS::EC2::Subnet",
+      		"Properties" : {
+        		"VpcId" : { "Ref" : "VPC" },
+				"AvailabilityZone" : { "Fn::FindInMap" : [ "PreferredAZs", { "Ref" : "AWS::Region" }, "2" ] },
+        		"CidrBlock" : { "Fn::FindInMap" : [ "SubnetConfig", "Private2", "CIDR" ]},
+        		"Tags" : [
+					{ "Key" : "Name",      "Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-private-subnet-2" ] ] } },
+					{ "Key" : "Project",   "Value" : "DevOps" },
+					{ "Key" : "Network",   "Value" : "Private" }
+				]
+      		}
+    	},
+
+    	"InternetGateway" : {
+      		"Type" : "AWS::EC2::InternetGateway",
+      		"Properties" : {
+        		"Tags" : [
+                    { "Key" : "Name",      "Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-igw" ] ] } },
+          			{ "Key" : "Project",   "Value" : "DevOps" },
+          			{ "Key" : "Network",   "Value" : "Public" }
+        		]
+      		}
+    	},
+
+    	"IGWAttachment" : {
+       		"Type" : "AWS::EC2::VPCGatewayAttachment",
+       		"Properties" : {
+         		"VpcId" : { "Ref" : "VPC" },
+         		"InternetGatewayId" : { "Ref" : "InternetGateway" }
+       		}
+    	},
+
+    	"PublicRouteTable" : {
+      		"Type" : "AWS::EC2::RouteTable",
+      		"Properties" : {
+        		"VpcId" : { "Ref" : "VPC" },
+        		"Tags" : [
+					{ "Key" : "Name",          "Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-public-routeTable" ] ] } },
+					{ "Key" : "Project",       "Value" : "DevOps" },
+                    { "Key" : "Network",       "Value" : "Public" }
+				]
+      		}
+    	},
+
+    	"PublicRoute" : {
+      		"DependsOn" : ["IGWAttachment"],
+      		"Type" : "AWS::EC2::Route",
+      		"Properties" : {
+        		"RouteTableId" : { "Ref" : "PublicRouteTable" },
+        		"DestinationCidrBlock" : "0.0.0.0/0",
+        		"GatewayId" : { "Ref" : "InternetGateway" }
+      		}
+    	},
+
+    	"PublicSubnet1RouteTableAssociation" : {
+      		"Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      		"Properties" : {
+        		"SubnetId" : { "Ref" : "PublicSubnet1" },
+        		"RouteTableId" : { "Ref" : "PublicRouteTable" }
+      		}
+    	},
+
+    	"PrivateRouteTable" : {
+      		"Type" : "AWS::EC2::RouteTable",
+      		"Properties" : {
+        		"VpcId" : { "Ref" : "VPC" },
+        		"Tags" : [
+					{ "Key" : "Name",          "Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-private-routeTable" ] ] } },
+					{ "Key" : "Project",       "Value" : "DevOps" },
+                    { "Key" : "Network",       "Value" : "Private" }
+				]
+      		}
+    	},
+        
+        "PrivateRoute" : {
+      		"DependsOn" : ["NATGateway"],
+      		"Type" : "AWS::EC2::Route",
+      		"Properties" : {
+        		"RouteTableId" : { "Ref" : "PrivateRouteTable" },
+        		"DestinationCidrBlock" : "0.0.0.0/0",
+                "NatGatewayId" : { "Ref" : "NATGateway" }
+      		}
+    	},
+
+    	"PrivateSubnet1RouteTableAssociation" : {
+      		"Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      		"Properties" : {
+        		"SubnetId" : { "Ref" : "PrivateSubnet1" },
+        		"RouteTableId" : { "Ref" : "PrivateRouteTable" }
+      		}
+    	},
+		
+		"PrivateSubnet2RouteTableAssociation" : {
+      		"Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      		"Properties" : {
+        		"SubnetId" : { "Ref" : "PrivateSubnet2" },
+        		"RouteTableId" : { "Ref" : "PrivateRouteTable" }
+      		}
+    	},
+		
+		"PrivateSecurityGroup": {
+      		"Type": "AWS::EC2::SecurityGroup",
+      		"Properties": {
+        		"VpcId": { "Ref": "VPC" },
+        		"GroupDescription": "Enable access to instances on the private subnets",
+        		"SecurityGroupIngress": [
+					{ "IpProtocol": "-1", 		"FromPort" : "-1", 		"ToPort" : "-1", 	"SourceSecurityGroupId": { "Ref" : "OpenVPNSecurityGroup" } }
+          		],
+				"Tags" : [
+					{ "Key" : "Name", 			"Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-private-sg" ] ] } },
+					{ "Key" : "Application", 	"Value" : { "Ref" : "AWS::StackId" } }
+				]
+      		}
+		},
+		
+		"PublicSecurityGroup": {
+      		"Type": "AWS::EC2::SecurityGroup",
+      		"Properties": {
+        		"VpcId": { "Ref": "VPC" },
+        		"GroupDescription": "Enable access to instances on the public subnets",
+        		"SecurityGroupIngress": [
+					{ "IpProtocol": "tcp", 		"FromPort" : "80", 		"ToPort" : "80", 	"CidrIp" : "0.0.0.0/0" },
+					{ "IpProtocol": "tcp", 		"FromPort" : "443", 	"ToPort" : "443", 	"CidrIp" : "0.0.0.0/0" }
+          		],
+				"Tags" : [
+					{ "Key" : "Name", 			"Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-public-sg" ] ] } },
+					{ "Key" : "Application", 	"Value" : { "Ref" : "AWS::StackId" } }
+				]
+      		}
+		},
+        
+        "NATEIP" : {
+            "Type" : "AWS::EC2::EIP",
+            "Properties" : {
+                "Domain" : "vpc"
+            }
+        },
+
+    	"NATGateway" : {
+      		"Type" : "AWS::EC2::NatGateway",
+      		"Properties" : {
+        		"Properties" : {
+                    "AllocationId" : { "Ref" : "NATEIP" },
+                    "SubnetId" : { "Ref" : "PublicSubnet1" }
+                }
+      		}
+    	}
+	},
+
+  	"Outputs" : {
+		"PublicSubnet1Id" 		: { "Value" : { "Ref" : "PublicSubnet1" } },
+		"PublicSubnet2Id" 		: { "Value" : { "Ref" : "PublicSubnet2" } },
+		"PrivateSubnet1Id" 		: { "Value" : { "Ref" : "PrivateSubnet1" } },
+		"PrivateSubnet2Id" 		: { "Value" : { "Ref" : "PrivateSubnet2" } },
+		"PublicSecurityGroup" 	: { "Value" : { "Ref" : "PublicSecurityGroup" } },
+		"PrivateSG" 			: { "Value" : { "Ref" : "PrivateSecurityGroup" } },
+		"OpenVPNSG" 			: { "Value" : { "Ref" : "OpenVPNSecurityGroup" } },
+		"VPCId"					: { "Value" : { "Ref" : "VPC" } }
+  	}  
+}

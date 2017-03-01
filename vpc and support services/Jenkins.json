@@ -1,0 +1,192 @@
+{
+	"Description" : "Create Master Jenkins Server",
+  	"Parameters" : {
+        
+    	"KeyName" : {
+      		"Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+      		"Type" : "String"
+    	},
+		
+		"InstanceType" : {
+      		"Type" : "String",
+      		"Description" : "ECS EC2 instance type",
+      		"Default" : "t2.micro",
+      		"AllowedValues" : [	
+"t2.micro","t2.small","t2.medium","t2.large","m4.large","m4.xlarge","m4.2xlarge","m4.4xlarge","m4.10xlarge","m3.medium","m3.large","m3.xlarge","m3.2xlarge","c4.large","c4.xlarge","c4.2xlarge","c4.4xlarge","c4.8xlarge","c3.large","c3.xlarge","c3.2xlarge","c3.4xlarge","c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge","i2.xlarge","i2.2xlarge","i2.4xlarge","i2.8xlarge" ],
+      		"ConstraintDescription" : "must be a valid EC2 instance type."
+    	},
+		
+    	"AMI" : {
+			"Description" : "AMI pf the pre-baked Jenkins Ubuntu server",
+			"Type" : "String"
+		},
+		
+		"PrivateSubnet1Id" : {
+	  		"Description" : "Id of the private subnet",
+	  		"Type" : "AWS::EC2::Subnet::Id"
+    	},
+		
+		"PrivateSecurityGroup" : {
+			"Description" : "SG of the Jenkins instance",
+			"Type" : "AWS::EC2::SecurityGroup::Id"
+		}
+	},
+  
+  	"Mappings" : {
+    	"AWSRegionArch2AMI" : {
+      		"us-east-1"      : { "AMI" : "ami-3a2e8d53" },
+      		"us-west-1"      : { "AMI" : "ami-4bebb10e" },
+      		"us-west-2"      : { "AMI" : "ami-5220ac62" },
+      		"eu-west-1"      : { "AMI" : "ami-39f9fc4d" },
+      		"sa-east-1"      : { "AMI" : "ami-c407d9d9" },
+      		"ap-southeast-1" : { "AMI" : "ami-80e2a4d2" },
+      		"ap-northeast-1" : { "AMI" : "ami-f052e1f1" }
+		}
+	},
+  
+  	"Resources" : {
+    
+	  	"JenkinsInstance" : {
+      		"Type" : "AWS::EC2::Instance",
+      		"Properties" : {
+				"KeyName" : { "Ref" : "KeyName" },
+      			"ImageId" : { "Ref" : "AMI" },
+				"IamInstanceProfile" : { "Ref" : "JenkinsInstanceProfile" },
+				"SubnetId" : { "Ref" : "PrivateSubnet1Id" },
+        		"InstanceType" : { "Ref" : "InstanceType" },
+				"SecurityGroupIds" : [ { "Ref" : "PrivateSecurityGroup" } ],
+				"UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+             		"#!/bin/bash -xe\n",
+					"sudo apt-get install awscli",
+					"echo export AWS_DEFAULT_REGION=us-east-1a >> ~/.bash_proflle",
+             		"#yum update -y aws-cfn-bootstrap\n",
+
+             		"# Install the files and packages from the metadata\n",
+             		"#/opt/aws/bin/cfn-init -v ",
+             		"#         --stack ", { "Ref" : "AWS::StackName" },
+             		"#         --resource WebServerInstance ",
+             		"#         --configsets Install ",
+             		"#         --region ", { "Ref" : "AWS::Region" }, "\n"
+				]]}},
+				"Tags" : [
+					{ "Key" : "Name",            "Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-jenkins-master" ] ] } },
+					{ "Key" : "Project", 	     "Value" : "DevOps" },
+                    { "Key" : "Application",     "Value" : "Jenkins"}
+				]
+			}
+	  	},
+		
+		"JenkinsExecutionRole": {
+  			"Type": "AWS::IAM::Role",
+  			"Properties": {
+    			"AssumeRolePolicyDocument": {
+               		"Version" : "2012-10-17",
+               		"Statement": [ {
+                  		"Effect": "Allow",
+                  		"Principal": {
+                     		"Service": [ "ec2.amazonaws.com" ]
+                  		},
+                  		"Action": [ "sts:AssumeRole" ]
+               		} ]
+            	},
+            	"Path": "/",
+            	"Policies": [ 
+					{
+						"PolicyName": "ec2-admin",
+						"PolicyDocument": {
+							"Version" : "2012-10-17",
+							"Statement": [ {
+								"Effect": "Allow",
+								"Action": "ec2:*",
+								"Resource": "*"
+							} ]
+						}
+					},
+					{
+						"PolicyName": "cf-admin",
+						"PolicyDocument": {
+							"Version" : "2012-10-17",
+							"Statement": [ {
+								"Effect": "Allow",
+								"Action": "cloudformation:*",
+								"Resource": "*"
+							} ]
+						}
+					},
+					{
+						"PolicyName": "s3-admin",
+						"PolicyDocument": {
+							"Version" : "2012-10-17",
+							"Statement": [ {
+								"Effect": "Allow",
+								"Action": "s3:*",
+								"Resource": "*"
+							} ]
+						}
+					},
+					{
+						"PolicyName": "autoscaling-admin",
+						"PolicyDocument": {
+							"Version" : "2012-10-17",
+							"Statement": [ {
+								"Effect": "Allow",
+								"Action": "autoscaling:*",
+								"Resource": "*"
+							} ]
+						}
+					},
+					{
+						"PolicyName": "rds-admin",
+						"PolicyDocument": {
+							"Version" : "2012-10-17",
+							"Statement": [ {
+								"Effect": "Allow",
+								"Action": "rds:*",
+								"Resource": "*"
+							} ]
+						}
+					},
+					{
+						"PolicyName": "elb-admin",
+						"PolicyDocument": {
+							"Version" : "2012-10-17",
+							"Statement": [ {
+								"Effect": "Allow",
+								"Action": "elasticloadbalancing:*",
+								"Resource": "*"
+							} ]
+						}
+					},
+					{
+						"PolicyName" : "IAMJenkinsPerms",
+						"PolicyDocument" : {
+							"Version" : "2012-10-17",
+							"Statement" : [ {
+								"Effect" : "Allow",
+								"Action" : "iam:PassRole",
+								"Resource" : { "Fn::Join" : [ "", [ "arn:aws:iam::", { "Ref" : "AWS::AccountId" }, ":instance-profile/*" ] ] }
+							} ]
+						}
+					}
+				]
+  			}
+		},
+		
+		"JenkinsInstanceProfile": {
+        	"Type": "AWS::IAM::InstanceProfile",
+         	"Properties": {
+            	"Path": "/",
+            	"Roles": [ 
+					{ "Ref": "JenkinsExecutionRole" } 
+				]
+         	}
+      	}
+  	},
+  
+  	"Outputs" : {
+   		"PrivateIP" : {
+			"Value" : { "Fn::GetAtt" : [ "JenkinsInstance", "PrivateIp" ] },
+			"Description" : "Private IP address of instance"
+		}
+  	}
+}

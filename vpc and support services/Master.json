@@ -1,0 +1,176 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+
+  	"Description" : "DevOps Project Starter Template.",
+
+  	"Parameters" : {
+		
+		"KeyName": {
+      		"Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      		"Type": "AWS::EC2::KeyPair::KeyName",
+      		"ConstraintDescription": "must be the name of an existing EC2 KeyPair.",
+			"Default" : "OpenVPNCFTest"
+    	},
+		
+		"SSHLocation" : {
+      		"Description" : " The IP address range that can be used to SSH to the EC2 instances",
+      		"Type": "String",
+      		"MinLength": "9",
+      		"MaxLength": "18",
+      		"Default": "0.0.0.0/0",
+      		"AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      		"ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    	},
+		
+		"BaseInstanceType" : {
+      		"Type" : "String",
+      		"Description" : "Gen. Purpose EC2 instance type",
+			"Default" : "t2.micro",
+      		"AllowedValues" : [ "t2.micro","t2.small","t2.medium","t2.large","m4.large","m4.xlarge","m4.2xlarge","m4.4xlarge","m4.10xlarge","m3.medium","m3.large","m3.xlarge","m3.2xlarge","c4.large","c4.xlarge","c4.2xlarge","c4.4xlarge","c4.8xlarge","c3.large","c3.xlarge","c3.2xlarge","c3.4xlarge","c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge","i2.xlarge","i2.2xlarge","i2.4xlarge","i2.8xlarge" ],
+      		"ConstraintDescription" : "must be a valid EC2 instance type."
+    	},
+		
+		"OpenVPNAdminUser" : {
+      		"Type" : "String",
+      		"Description" : "OpenVPN admin account name",
+	  		"Default" : "openvpn"		  
+    	},
+		
+		"OpenVPNAdminPassword" : {
+      		"Type" : "String",
+      		"Description" : "OpenVPN admin account initial password",
+	  		"NoEcho" : "true",
+      		"MinLength": "8",
+      		"MaxLength": "32",
+      		"ConstraintDescription" : "must contain at least 8 characters."	  
+    	}
+  	},
+
+  	"Mappings" : {
+		"Region2Examples" : {
+		 	"us-east-1"      : { "Examples" : "https://s3.amazonaws.com/cloudformation-examples-us-east-1" },
+		  	"us-west-2"      : { "Examples" : "https://s3-us-west-2.amazonaws.com/cloudformation-examples-us-west-2" },
+			"us-west-1"      : { "Examples" : "https://s3-us-west-1.amazonaws.com/cloudformation-examples-us-west-1" },
+			"eu-west-1"      : { "Examples" : "https://s3-eu-west-1.amazonaws.com/cloudformation-examples-eu-west-1" },
+			"eu-central-1"   : { "Examples" : "https://s3-eu-central-1.amazonaws.com/cloudformation-examples-eu-central-1" },
+			"ap-southeast-1" : { "Examples" : "https://s3-ap-southeast-1.amazonaws.com/cloudformation-examples-ap-southeast-1" },
+			"ap-northeast-1" : { "Examples" : "https://s3-ap-northeast-1.amazonaws.com/cloudformation-examples-ap-northeast-1" },
+			"ap-southeast-2" : { "Examples" : "https://s3-ap-southeast-2.amazonaws.com/cloudformation-examples-ap-southeast-2" },
+			"sa-east-1"      : { "Examples" : "https://s3-sa-east-1.amazonaws.com/cloudformation-examples-sa-east-1" },
+			"cn-north-1"     : { "Examples" : "https://s3.cn-north-1.amazonaws.com.cn/cloudformation-examples-cn-north-1" }
+		},
+    
+		"AWSInstanceType2Arch" : {
+			"t1.micro"    : { "Arch" : "PV64"   },
+			"t2.micro"    : { "Arch" : "HVM64"  },
+			"t2.small"    : { "Arch" : "HVM64"  },
+			"t2.medium"   : { "Arch" : "HVM64"  },
+			"m1.small"    : { "Arch" : "PV64"   },
+			"m1.medium"   : { "Arch" : "PV64"   },
+			"m1.large"    : { "Arch" : "PV64"   },
+			"m1.xlarge"   : { "Arch" : "PV64"   },
+			"m2.xlarge"   : { "Arch" : "PV64"   },
+			"m2.2xlarge"  : { "Arch" : "PV64"   },
+			"m2.4xlarge"  : { "Arch" : "PV64"   },
+			"m3.medium"   : { "Arch" : "HVM64"  },
+			"m3.large"    : { "Arch" : "HVM64"  },
+			"m3.xlarge"   : { "Arch" : "HVM64"  },
+			"m3.2xlarge"  : { "Arch" : "HVM64"  },
+			"c1.medium"   : { "Arch" : "PV64"   },
+			"c1.xlarge"   : { "Arch" : "PV64"   },
+			"c3.large"    : { "Arch" : "HVM64"  },
+			"c3.xlarge"   : { "Arch" : "HVM64"  },
+			"c3.2xlarge"  : { "Arch" : "HVM64"  },
+			"c3.4xlarge"  : { "Arch" : "HVM64"  },
+			"c3.8xlarge"  : { "Arch" : "HVM64"  },
+			"c4.large"    : { "Arch" : "HVM64"  },
+			"c4.xlarge"   : { "Arch" : "HVM64"  },
+			"c4.2xlarge"  : { "Arch" : "HVM64"  },
+			"c4.4xlarge"  : { "Arch" : "HVM64"  },
+			"c4.8xlarge"  : { "Arch" : "HVM64"  },
+			"g2.2xlarge"  : { "Arch" : "HVMG2"  },
+			"r3.large"    : { "Arch" : "HVM64"  },
+			"r3.xlarge"   : { "Arch" : "HVM64"  },
+			"r3.2xlarge"  : { "Arch" : "HVM64"  },
+			"r3.4xlarge"  : { "Arch" : "HVM64"  },
+			"r3.8xlarge"  : { "Arch" : "HVM64"  },
+			"i2.xlarge"   : { "Arch" : "HVM64"  },
+			"i2.2xlarge"  : { "Arch" : "HVM64"  },
+			"i2.4xlarge"  : { "Arch" : "HVM64"  },
+			"i2.8xlarge"  : { "Arch" : "HVM64"  },
+			"d2.xlarge"   : { "Arch" : "HVM64"  },
+			"d2.2xlarge"  : { "Arch" : "HVM64"  },
+			"d2.4xlarge"  : { "Arch" : "HVM64"  },
+			"d2.8xlarge"  : { "Arch" : "HVM64"  },
+			"hi1.4xlarge" : { "Arch" : "HVM64"  },
+			"hs1.8xlarge" : { "Arch" : "HVM64"  },
+			"cr1.8xlarge" : { "Arch" : "HVM64"  },
+			"cc2.8xlarge" : { "Arch" : "HVM64"  }
+		},
+    
+		"AWSRegionArch2AMIUbuntuBase" : {
+      		"us-east-1"        : {"PV64" : "ami-d85e75b0", "HVM64" : "ami-d05e75b8", "HVMG2" : "ami-5b05ba30"}
+		}
+	},
+
+  	"Resources" : {
+		
+		"VPC" : {
+			"Type" : "AWS::CloudFormation::Stack",
+			"Properties" : {
+				"TemplateURL" : "https://s3.amazonaws.com/cf-templates-1d97cdytmydis-us-east-1/VPC.json",
+				"Parameters" : {
+					
+				}
+			}
+		},
+
+		"OpenVPN" : {
+			"Type" : "AWS::CloudFormation::Stack",
+			"Properties" : {
+				"TemplateURL" : "https://s3.amazonaws.com/cf-templates-1d97cdytmydis-us-east-1/OpenVPN.json",
+				"Parameters" : {
+					"KeyName" : { "Ref" : "KeyName" },
+    				"InstanceType" : { "Ref" : "BaseInstanceType" },
+					"SubnetId" : { "Fn::GetAtt": [ "NetworkInfo", "PublicSubnet1Id" ] },
+					"SecurityGroup" : { "Fn::GetAtt": [ "NetworkInfo", "OpenVPNSG" ] },
+					"AdminUser" : { "Ref" : "OpenVPNAdminUser" },
+					"AdminPassword" : { "Ref" : "OpenVPNAdminPassword" }
+				}
+			}
+		},
+		
+		"Jenkins" : {
+			"Type" : "AWS::CloudFormation::Stack",
+			"Properties" : {
+				"TemplateURL" : "https://s3.amazonaws.com/cf-templates-1d97cdytmydis-us-east-1/Jenkins.json",
+				"Parameters" : {
+					"KeyName" : { "Ref" : "KeyName" },
+					"InstanceType" : { "Ref" : "BaseInstanceType" },
+					"AMI" : "ami-001f5a6a",
+					"PrivateSubnet1Id" : { "Fn::GetAtt": [ "NetworkInfo", "PrivateSubnet1Id" ] },
+					"PrivateSecurityGroup" : { "Fn::GetAtt": [ "NetworkInfo", "PrivateSG" ] }
+				}
+			}
+		},
+		
+		"Chef" : {
+			"Type" : "AWS::CloudFormation::Stack",
+			"Properties" : {
+				"TemplateURL" : "https://s3.amazonaws.com/cf-templates-1d97cdytmydis-us-east-1/Chef.json",
+				"Parameters" : {
+					"KeyName" 					: { "Ref" : "KeyName" },
+					"ServerInstanceType" 		: "m3.large",
+					"WorkstationInstanceType" 	: "t2.small",
+    				"ServerAMI" 				: "ami-487a3920",
+					"WorkstationAMI" 			: "ami-d05e75b8",
+					"PrivateSubnet1Id" 			: { "Fn::GetAtt": [ "VPC", "Outputs.PrivateSubnet1Id" ] },
+					"PublicSubnet1Id" 			: { "Fn::GetAtt": [ "VPC", "Outputs.PublicSubnet1Id" ] },
+					"PublicSubnet2Id" 			: { "Fn::GetAtt": [ "VPC", "Outputs.PublicSubnet2Id" ] },
+					"PublicSecurityGroup" 		: { "Fn::GetAtt": [ "VPC", "Outputs.PublicSecurityGroup" ] },
+					"PrivateSecurityGroup" 		: { "Fn::GetAtt": [ "VPC", "Outputs.PrivateSG" ] }
+				}
+			}
+		}
+  	}
+}

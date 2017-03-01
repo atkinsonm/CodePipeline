@@ -1,0 +1,162 @@
+{
+	"Description" : "Create an OpenVPN proxy server",
+  	"Parameters" : {
+        
+    	"KeyName" : {
+      		"Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+      		"Type" : "String"
+    	},
+        
+    	"InstanceType" : {
+      		"Description" : "EC2 instance type",
+      		"Type" : "String",
+      		"Default" : "t2.micro",
+            "AllowedValues" : [	
+"t2.nano","t2.micro","t2.small","t2.medium","t2.large","m4.large","m4.xlarge","m4.2xlarge","m4.4xlarge","m4.10xlarge","m3.medium","m3.large","m3.xlarge","m3.2xlarge","c4.large","c4.xlarge","c4.2xlarge","c4.4xlarge","c4.8xlarge","c3.large","c3.xlarge","c3.2xlarge","c3.4xlarge","c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge","i2.xlarge","i2.2xlarge","i2.4xlarge","i2.8xlarge" ],
+      		"ConstraintDescription" : "must be a valid EC2 instance type."
+    	},
+        
+		"SubnetId" : {
+	  		"Description" : "Id of the public subnet",
+	  		"Type" : "AWS::EC2::Subnet::Id"
+    	},
+        
+		"AdminUser" : {
+            "Description" : "OpenVPN admin account name",
+      		"Type" : "String",
+	  		"Default" : "openvpn"		  
+    	},
+        
+		"AdminPassword" : {
+            "Description" : "OpenVPN admin account initial password",
+      		"Type" : "String",
+	  		"NoEcho" : "true",
+      		"MinLength" : 8,
+      		"MaxLength" : 32,
+      		"ConstraintDescription" : "must contain at least 8 characters."	  
+    	},
+        
+        "VPCId" : {
+			"Description" : "Id of the VPC",
+			"Type" : "AWS::EC2::VPC::Id"
+		},
+        
+        "VPCCIDR" : {
+            "Description" : "CIDR range of the VPC",
+            "Type" : "String"
+        },
+        
+        "PubliclyAccessibleRange" : {
+            "Description" : "IP range for the public web front end",
+            "Type" : "String",
+            "Default" : "0.0.0.0/0"
+        }
+	},
+    
+    "Metadata" : {
+  		"AWS::CloudFormation::Interface" : {
+      		"ParameterGroups" : [
+				{
+        			"Label" : { "default" : "Network Parameters" },
+        			"Parameters" : [ "PubliclyAccessibleRange", "SubnetId", "VPCId", "VPCCIDR" ]
+      			},
+				{
+					"Label" : { "default" : "Instance Parameters" },
+					"Parameters" : [ "KeyName", "InstanceType" ]
+				},
+                {
+					"Label" : { "default" : "OpenVPN Parameters" },
+					"Parameters" : [ "AdminUser", "AdminPassword" ]
+				}
+			]
+  	  	}
+  	},
+  
+  	"Mappings" : {
+    	"RegionMap" : {
+			"us-east-1": { "AMI" : "ami-5fe36434" }
+    	}
+  	},
+  
+  	"Resources" : {
+		
+		"IPAddress" : {
+      		"Type" : "AWS::EC2::EIP",
+      		"Properties" : {
+        		"Domain" : "vpc"
+      		}
+    	},
+		
+		"IPAssoc" : {
+    		"Type": "AWS::EC2::EIPAssociation",
+      		"Properties": {
+        		"AllocationId": { "Fn::GetAtt" : [ "IPAddress", "AllocationId" ] },
+        		"InstanceId": { "Ref" : "Instance" }
+     		}
+   		},
+        
+        "SecurityGroup" : {
+      		"Type" : "AWS::EC2::SecurityGroup",
+      		"Properties" : {
+				"VpcId": { "Ref": "VPCId" },
+        		"GroupDescription" : "Enable OpenVPN access.",
+        		"SecurityGroupIngress" : [
+					{ "IpProtocol" : "tcp", 	"FromPort" : "22", 		"ToPort" : "22", 	"CidrIp" : { "Ref" : "VPCCIDR" } },
+					{ "IpProtocol" : "tcp", 	"FromPort" : "443", 	"ToPort" : "443", 	"CidrIp" : { "Ref" : "PubliclyAccessibleRange" } },  	
+         			{ "IpProtocol" : "udp", 	"FromPort" : "1194", 	"ToPort" : "1194", 	"CidrIp" : { "Ref" : "PubliclyAccessibleRange" } },
+         			{ "IpProtocol" : "tcp", 	"FromPort" : "943", 	"ToPort" : "943", 	"CidrIp" : { "Ref" : "PubliclyAccessibleRange" } }
+        		],
+				"Tags" : [
+					{ "Key" : "Name",          "Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-openvpn-sg" ] ] } },
+					{ "Key" : "Project",       "Value" : "DevOps" },
+					{ "Key" : "Application",   "Value" : "OpenVPN" }
+				]
+      		}
+    	},
+    
+	  	"Instance" : {
+      		"Type" : "AWS::EC2::Instance",
+      		"Properties" : {
+        		"ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI" ]},
+        		"InstanceType" : { "Ref" : "InstanceType" },  	
+        		"SecurityGroupIds" : [ { "Ref" : "SecurityGroup" } ],	
+				"SubnetId" : { "Ref" : "SubnetId" },
+        		"KeyName" : { "Ref" : "KeyName" },
+				"UserData": {
+          			"Fn::Base64": {
+            			"Fn::Join": [
+              				"",
+              				[
+								"public_hostname=",
+									{ "Ref" : "IPAddress" },
+								"\n",				
+								"admin_user=",
+									{ "Ref" : "AdminUser" },
+								"\n",
+								"admin_pw=",
+									{ "Ref" : "AdminPassword" }
+						  	]
+						]
+					}
+				},
+				"Tags" : [
+					{ "Key" : "Name", 			"Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-openvpn" ] ] } },
+					{ "Key" : "Project", 		"Value" : "DevOps" },
+					{ "Key" : "Application",	"Value" : "OpenVPN" }
+				]
+      		}
+    	}
+  	},
+  
+  	"Outputs" : {
+    	"OpenVPNServerAdminURL" : {
+      		"Value" : { "Fn::Join" : ["", ["https://", { "Ref" : "IPAddress" }, ":943/admin" ]] },
+      		"Description" : "OpenVPN Server Admin URL"
+    	}, 
+  
+		"OpenVPNServerURL" : {
+      		"Value" : { "Fn::Join" : ["", ["https://", { "Ref" : "IPAddress" } ]] },
+      		"Description" : "OpenVPN Server URL"
+    	}
+  	}
+}

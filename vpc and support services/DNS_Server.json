@@ -1,0 +1,152 @@
+{
+	"Description" : "Create DNS Server for internal DevOps applications",
+  	"Parameters" : {
+    	"KeyName" : {
+      		"Description" : "Name of an existing EC2 KeyPair",
+      		"Type" : "AWS::EC2::KeyPair::KeyName"
+    	},
+		
+		"InstanceType" : {
+      		"Type" : "String",
+      		"Description" : "ECS EC2 instance type",
+      		"Default" : "t2.nano",
+      		"AllowedValues" : [	
+"t2.nano","t2.micro","t2.small","t2.medium","t2.large","m4.large","m4.xlarge","m4.2xlarge","m4.4xlarge","m4.10xlarge","m3.medium","m3.large","m3.xlarge","m3.2xlarge","c4.large","c4.xlarge","c4.2xlarge","c4.4xlarge","c4.8xlarge","c3.large","c3.xlarge","c3.2xlarge","c3.4xlarge","c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge","i2.xlarge","i2.2xlarge","i2.4xlarge","i2.8xlarge" ],
+      		"ConstraintDescription" : "must be a valid EC2 instance type."
+    	},
+		
+		"PrivateSubnet1Id" : {
+	  		"Description" : "Id of the private subnet",
+	  		"Type" : "AWS::EC2::Subnet::Id"
+    	},
+        
+        "VPCId" : {
+			"Description" : "Id of the VPC",
+			"Type" : "AWS::EC2::VPC::Id"
+		},
+        
+        "VPCCIDR" : {
+            "Description" : "CIDR range of the VPC",
+            "Type" : "String"
+        },
+        
+        "JenkinsPrivateIP" : {
+            "Description" : "Jenkins server private IP address",
+            "Type" : "String"
+        }
+	},
+  
+  	"Mappings" : {
+    	"Windows2012R2AMI" : {
+      		"us-east-1"      : { "AMI" : "ami-ee7805f9" }
+		}
+	},
+    
+    "Metadata" : {
+  		"AWS::CloudFormation::Interface" : {
+      		"ParameterGroups" : [
+				{
+        			"Label" : { "default" : "Network Parameters" },
+        			"Parameters" : [ "PrivateSubnet1Id", "VPCId", "VPCCIDR" ]
+      			},
+				{
+					"Label" : { "default" : "Instance Parameters" },
+					"Parameters" : [ "KeyName", "InstanceType" ]
+				},
+                {
+					"Label" : { "default" : "DNS Record Parameters" },
+					"Parameters" : [ "JenkinsPrivateIP" ]
+				}
+			]
+  	  	}
+  	},
+  
+  	"Resources" : {
+    
+        "DNSSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : { 
+                "GroupDescription" : "DevOps applications internal DNS server SG",
+                "VpcId" : { "Ref" : "VPCId" },
+                "SecurityGroupIngress" : [ 
+                    {
+                        "CidrIp" : { "Ref" : "VPCCIDR" },
+                        "FromPort" : 53,
+                        "ToPort" : 53,
+                        "IpProtocol" : "tcp"
+                    },
+                    {
+                        "CidrIp" : { "Ref" : "VPCCIDR" },
+                        "FromPort" : 53,
+                        "ToPort" : 53,
+                        "IpProtocol" : "udp"
+                    }
+                ],
+                "Tags" : [
+                    { "Key" : "Name", 		"Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-dns-server" ] ] } },
+                    { "Key" : "Project", 	"Value" : "DevOps" }
+                ] 
+            }
+        },
+        
+	  	"DNSInstance" : {
+      		"Type" : "AWS::EC2::Instance",
+            "Metadata" : {
+                "AWS::CloudFormation::Init" : {
+                    "config" : {
+                        "files" : {
+                            "c:\\cfn\\cfn-hup.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[main]\n",
+                                    "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                                    "region=", { "Ref" : "AWS::Region" }, "\n"
+                                ]]}
+                            },
+                            "c:\\cfn\\hooks.d\\cfn-auto-reloader.conf" : {
+                                "content": { "Fn::Join" : ["", [
+                                    "[cfn-auto-reloader-hook]\n",
+                                    "triggers=post.update\n",
+                                    "path=Resources.SharePointFoundation.Metadata.AWS::CloudFormation::Init\n",
+                                    "action=cfn-init.exe -v -s ", { "Ref" : "AWS::StackId" },
+                                        " --resource DNSInstance",
+                                        " --region ", { "Ref" : "AWS::Region" }, "\n"
+                                ]]}
+                            }
+                        },
+                        "services" : {
+                            "windows" : {
+                                "cfn-hup" : {
+                                    "enabled" : "true",
+                                    "ensureRunning" : "true",
+                                    "files" : ["c:\\cfn\\cfn-hup.conf", "c:\\cfn\\hooks.d\\cfn-auto-reloader.conf"]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+      		"Properties" : {
+				"KeyName" : { "Ref" : "KeyName" },
+      			"ImageId" : { "Fn::FindInMap" : [ "Windows2012R2AMI", { "Ref" : "AWS::Region" }, "AMI" ] },
+				"SubnetId" : { "Ref" : "PrivateSubnet1Id" },
+        		"InstanceType" : { "Ref" : "InstanceType" },
+				"SecurityGroupIds" : [ { "Ref" : "DNSSecurityGroup" } ],
+				"UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+                    "<powershell>\n",
+                        "Install-WindowsFeature DNS –IncludeManagementTools \n",
+                        "Add-DnsServerPrimaryZone -Name devops.internal -ReplicationScope Domain\n",
+                        "Add-DnsServerResourceRecordA -IPv4Address ", { "Ref" : "JenkinsPrivateIP" }, " -Name jenkins -ZoneName jhcdevops.internal -TimeToLive 3600\n",
+                    "</powershell>"
+                ]]}},
+				"Tags" : [
+					{ "Key" : "Name", 		"Value" : { "Fn::Join": [ "", [ { "Ref": "AWS::StackName" }, "-dns-server" ] ] } },
+					{ "Key" : "Project", 	"Value" : "DevOps" }
+				]
+			}
+	  	}
+  	},
+  
+  	"Outputs" : {
+   		
+  	}
+}
