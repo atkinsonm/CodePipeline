@@ -322,9 +322,9 @@
 
               "/var/www/html/wordpress/index.php" : {
                 "content" : "<!doctype html><html lang = \"en\"><head><title>My WordPress Site</title></head><body><p>Instance id: <?php curl_exec(curl_init(\"http://169.254.169.254/latest/meta-data/instance-id\")); ?></p></body></html>",
-                "mode" : "",
-                "owner" : "",
-                "group" : ""
+                "mode" : "644",
+                "owner" : "nobody",
+                "group" : "nfsnobody"
               }
             },
             "services" : {
