@@ -223,7 +223,6 @@
       "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
        "Properties": {
           "AvailabilityZones" : [ "us-east-1a", "us-east-1b" ],
-          "Instances" : [ { "Ref" : "WebServer" } ],
           "Listeners" : [ 
             {
                 "InstancePort" : "80",
@@ -262,7 +261,7 @@
                   "path=Resources.WebServer.Metadata.AWS::CloudFormation::Init\n",
                   "action=/opt/aws/bin/cfn-init -v ",
                           "         --stack ", { "Ref" : "AWS::StackName" },
-                          "         --resource WebServer ",
+                          "         --resource WordPressLC ",
                           "         --configsets wordpress_install ",
                           "         --region ", { "Ref" : "AWS::Region" }, "\n"
                 ]]},          
@@ -366,13 +365,8 @@
 
                        "/opt/aws/bin/cfn-init -v ",
                        "         --stack ", { "Ref" : "AWS::StackName" },
-                       "         --resource WebServer ",
+                       "         --resource WordPressLC ",
                        "         --configsets wordpress_install ",
-                       "         --region ", { "Ref" : "AWS::Region" }, "\n",
-
-                       "/opt/aws/bin/cfn-signal -e $? ",
-                       "         --stack ", { "Ref" : "AWS::StackName" },
-                       "         --resource WebServer ",
                        "         --region ", { "Ref" : "AWS::Region" }, "\n"
         ]]}}
       }
