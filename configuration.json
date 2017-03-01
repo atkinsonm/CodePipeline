@@ -1,0 +1,22 @@
+{
+  "Parameters" : {
+    "KeyName" : "OpenVPNCFTest",
+    "InstanceType" : "t2.small",
+    "SSHLocation" : "0.0.0.0/0",
+    "DBName" : "wordpressdb",
+    "DBUser" : "wordpress",
+    "DBPassword" : "wordpress",
+    "DBRootPassword" : "wordpress",
+    "DefaultVPCId" : "vpc-77fe6612"
+  },
+  "StackPolicy" : {
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : "Update:*",
+        "Principal": "*",
+        "Resource" : "*"
+      }
+    ]
+  }
+}
