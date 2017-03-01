@@ -18,28 +18,5 @@ Allows for the use of custom domain names to reach DevOps internal applications
 
 Replace jenkins with the new name for your server and replace the IPv4Address parameter with a reference to your app's private IP 
 
-## Jenkins
+### Jenkins
 Continuous integration tool 
-
-# Supplementary Applications (Separate Repositories)
-
-## Chef
-
-## Fugue
-
-## Terraform
-
-# Future Considerations
-
-## Docker
-
-## Ansible
-
-## AWS CodePipeline
-
-## AWS CodeDeploy
-
-## Splunk
-
-## Datadog
-
