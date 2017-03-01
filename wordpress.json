@@ -1,7 +1,7 @@
 {
   "AWSTemplateFormatVersion" : "2010-09-09",
 
-  "Description" : "AWS CloudFormation Sample Template WordPress_Single_Instance: WordPress is web software you can use to create a beautiful website or blog. This template installs WordPress with a local MySQL database for storage. It demonstrates using the AWS CloudFormation bootstrap scripts to deploy WordPress. **WARNING** This template creates an Amazon EC2 instance. You will be billed for the AWS resources used if you create a stack from this template.",
+  "Description" : "AWS CloudFormation Sample Template WordPress_ELB: WordPress is web software you can use to create a beautiful website or blog. This template installs WordPress with a local MySQL database for storage. It demonstrates using the AWS CloudFormation bootstrap scripts to deploy WordPress. **WARNING** This template creates an Amazon EC2 instance. You will be billed for the AWS resources used if you create a stack from this template.",
 
   "Parameters" : {
 
@@ -68,6 +68,11 @@
       "MaxLength": "41",
       "AllowedPattern" : "[a-zA-Z0-9]*",
       "ConstraintDescription" : "must contain only alphanumeric characters."
+    },
+      
+    "DefaultVPCId" : {
+        "Type" : "AWS::EC2::VPC::Id",
+        "Description" : "Id of the default VPC"
     }
   },
 
@@ -209,12 +214,29 @@
         "SecurityGroupIngress" : [
           {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0"},
           {"IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : { "Ref" : "SSHLocation"}}
-        ]
+        ],
+        "VpcId" : { "Ref" : "DefaultVPCId" }
       }
     },
+      
+    "WordPressELB": {
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+       "Properties": {
+          "AvailabilityZones" : [ "us-east-1a", "us-east-1b" ],
+          "Listeners" : [ 
+            {
+                "InstancePort" : "80",
+                "InstanceProtocol" : "HTTP",
+                "LoadBalancerPort" : "80",
+                "Protocol" : "HTTP"
+            }
+          ],
+          "Scheme" : "internet-facing",
+          "SecurityGroups" : [ {"Ref" : "WebServerSecurityGroup"} ]
+       }
+    },
 
-    "WebServer": {
-      "Type" : "AWS::EC2::Instance",
+    "WordPressLC": {
       "Metadata" : {
         "AWS::CloudFormation::Init" : {
           "configSets" : {
@@ -239,7 +261,7 @@
                   "path=Resources.WebServer.Metadata.AWS::CloudFormation::Init\n",
                   "action=/opt/aws/bin/cfn-init -v ",
                           "         --stack ", { "Ref" : "AWS::StackName" },
-                          "         --resource WebServer ",
+                          "         --resource WordPressLC ",
                           "         --configsets wordpress_install ",
                           "         --region ", { "Ref" : "AWS::Region" }, "\n"
                 ]]},          
@@ -295,6 +317,13 @@
                 "mode" : "000500",
                 "owner" : "root",
                 "group" : "root"
+              },
+
+              "/var/www/html/wordpress/index.php" : {
+                "content" : "<!doctype html><html lang = \"en\"><head><title>My WordPress Site</title></head><body><p>Instance id: <?php curl_exec(curl_init(\"http://169.254.169.254/latest/meta-data/instance-id\")); ?></p></body></html>",
+                "mode" : "644",
+                "owner" : "nobody",
+                "group" : "nfsnobody"
               }
             },
             "services" : {
@@ -323,11 +352,12 @@
           }
         }
       },
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
       "Properties": {
         "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
-                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+                    { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
         "InstanceType"   : { "Ref" : "InstanceType" },
-        "SecurityGroups" : [ {"Ref" : "WebServerSecurityGroup"} ],
+        "SecurityGroups": [ { "Ref": "WebServerSecurityGroup" } ],
         "KeyName"        : { "Ref" : "KeyName" },
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
                        "#!/bin/bash -xe\n",
@@ -335,27 +365,31 @@
 
                        "/opt/aws/bin/cfn-init -v ",
                        "         --stack ", { "Ref" : "AWS::StackName" },
-                       "         --resource WebServer ",
+                       "         --resource WordPressLC ",
                        "         --configsets wordpress_install ",
-                       "         --region ", { "Ref" : "AWS::Region" }, "\n",
-
-                       "/opt/aws/bin/cfn-signal -e $? ",
-                       "         --stack ", { "Ref" : "AWS::StackName" },
-                       "         --resource WebServer ",
                        "         --region ", { "Ref" : "AWS::Region" }, "\n"
         ]]}}
-      },
-      "CreationPolicy" : {
-        "ResourceSignal" : {
-          "Timeout" : "PT15M"
-        }
+      }
+    },
+
+    "WordPressASG": {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "AvailabilityZones" : [ "us-east-1a", "us-east-1b" ],
+        "DesiredCapacity" : "2",
+        "MinSize" : "2",
+        "MaxSize" : "2",
+        "LaunchConfigurationName": { "Ref": "WordPressLC" },
+        "LoadBalancerNames": [ 
+          { "Ref" : "WordPressELB" }
+        ]
       }
     }
   },
 
   "Outputs" : {
     "WebsiteURL" : {
-      "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "WebServer", "PublicDnsName" ]}, "/wordpress" ]]},
+      "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "WordPressELB", "DNSName" ]}, "/wordpress" ]]},
       "Description" : "WordPress Website"
     }
   }
