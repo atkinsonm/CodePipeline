@@ -68,6 +68,11 @@
       "MaxLength": "41",
       "AllowedPattern" : "[a-zA-Z0-9]*",
       "ConstraintDescription" : "must contain only alphanumeric characters."
+    },
+
+    "DefaultVPCId" : {
+        "Type" : "AWS::EC2::VPC::Id",
+        "Description" : "Id of the default VPC"
     }
   },
 
